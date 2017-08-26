@@ -16,8 +16,8 @@ CoreRevision=5.8
 ModuleName=fifo_dc
 SourceFormat=VHDL
 ParameterFileVersion=1.0
-Date=08/23/2017
-Time=19:38:38
+Date=08/26/2017
+Time=16:52:48
 
 [Parameters]
 Verilog=0

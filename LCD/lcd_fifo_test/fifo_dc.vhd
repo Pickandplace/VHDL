@@ -2,7 +2,7 @@
 -- Module  Version: 5.8
 --C:\lscc\diamond\3.9\ispfpga\bin\nt\scuba.exe -w -n fifo_dc -lang vhdl -synth lse -bus_exp 7 -bb -arch xo2c00 -type ebfifo -depth 32 -width 16 -rwidth 16 -no_enable -pe 2 -pf 31 
 
--- Wed Aug 23 19:38:38 2017
+-- Sat Aug 26 16:52:49 2017
 
 library IEEE;
 use IEEE.std_logic_1164.all;
@@ -114,12 +114,12 @@ end Structure;
 
 -- synopsys translate_off
 library MACHXO2;
-configuration Structure_CON_fifo of fifo_dc is
+configuration Structure_CON_f of fifo_dc is
     for Structure
         for all:VHI use entity MACHXO2.VHI(V); end for;
         for all:VLO use entity MACHXO2.VLO(V); end for;
         for all:FIFO8KB use entity MACHXO2.FIFO8KB(V); end for;
     end for;
-end Structure_CON_fifo;
+end Structure_CON_f;
 
 -- synopsys translate_on

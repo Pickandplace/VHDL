@@ -32,16 +32,15 @@ entity top is
 		de_io		:	out std_logic;
 		clk_io		:	out std_logic;
 		pll_locked_o	: out std_logic;
-		int_osc_clk	:out std_logic
+		int_osc_clk	:out std_logic;
+		state_dbg 	: out	std_logic_vector(1 downto 0) 
 		);
 end top;
-
 
 architecture Behavioral1 of top is
 component lcd 
     port (
 		clk_lcd		:	in std_logic;
-		disp		:	out std_logic;
 		hsync		:	out std_logic;
 		vsync		:	out std_logic;
 		de			:	out std_logic;
@@ -117,8 +116,8 @@ signal pll_locked		:	std_logic := '0';
 
 signal pixel_vector		: 	std_logic_vector(16 downto 0) := (others => '0');  
 signal pixel_vector_old	: 	std_logic_vector(16 downto 0) := (others => '1'); 
-type state_type is (s0_reset, s05_wait_for_lock, s2_copy_lcd);
-signal state   : state_type;
+type state_type is (s05_wait_for_lock, s0_reset, s2_copy_lcd);
+signal state   : state_type := s05_wait_for_lock;
 
 
 signal h_pixel_vector	:	std_logic_vector(8 downto 0) := (others => '0');
@@ -128,7 +127,7 @@ signal v_pixel_vector	:	std_logic_vector(8 downto 0) := (others => '0');
 signal red_r 			:	std_logic_vector(7 downto 0) := (others => '0'); 
 signal green_r			:	std_logic_vector(7 downto 0) := (others => '0'); 
 signal blue_r 			:	std_logic_vector(7 downto 0) := (others => '0'); 
-signal state_dbg 		:	std_logic_vector(2 downto 0) := (others => '0'); 
+--signal state_dbg 		:	std_logic_vector(1 downto 0) := (others => '0'); 
 signal frame_start_rising : std_logic := '0';
 signal frame_end_rising : std_logic := '0';
 signal frame_start_rising_r : std_logic := '0';
@@ -152,7 +151,6 @@ signal de_r				:   std_logic := '0';
 begin  
 lcd_0:lcd	port map(
 		clk_lcd 	=> 	clk_10MHz,
-		disp 		=>	disp_io,
 		hsync		=>	hsync_r,
 		vsync		=>	vsync_r,
 		de			=>	de,	
@@ -201,11 +199,9 @@ fifo_c: fifo_dc
 	);
 		
 	--small state machine : reset and wait for the PLL lock
-	process(clk_100MHz, pll_locked) 
+	process(osc_int, pll_locked) 
 	begin
-		if pll_locked = '0' then
-			state <= s05_wait_for_lock;
-		elsif rising_edge(clk_100MHz) then
+		if rising_edge(osc_int) then
 			case state is 
 				when s05_wait_for_lock =>
 					if pll_locked = '1' then
@@ -230,28 +226,27 @@ fifo_c: fifo_dc
 		end if;
 	end process;
 	
-	process (clk_100MHz,state) 
-		variable delay_reset : integer range 0 to 100;
+	process (clk_100MHz) 
+		variable delay_reset : integer range 0 to 101;
 		variable x_var : integer range 0 to X_RESOLUTION := 0;
 		variable y_var : integer range 0 to Y_RESOLUTION := 0;	
 	begin
 		if rising_edge(clk_100MHz) then
 			case state is
 				when s0_reset =>
-					state_dbg <= "000";
+					state_dbg <= "00";
 					if delay_reset < 100 then
 						delay_reset := delay_reset + 1;
 						reset_finished <= '0';
 						reset_n <= '0';	  
 						en_clk_10MHz <= '0'; 
 						disp_io <= '0';
-						pll_locked_o <= '1';
 					else
 						reset_finished <= '1';
 					end if;
 				
 				when s05_wait_for_lock =>
-					state_dbg <= "001";
+					state_dbg <= "01";
 					delay_reset := 0;
 					reset_finished <= '0';
 					reset_n <= '0';	 
@@ -259,7 +254,7 @@ fifo_c: fifo_dc
 			
 					
 				when s2_copy_lcd =>					
-					state_dbg <= "100";
+					state_dbg <= "10";
 					en_clk_10MHz <= '1'; 
 					reset_n	 <= '1';  
 					disp_io <= '1';	

@@ -24,7 +24,6 @@ use MACHXO2.components.all;
 entity lcd is
     port (
 		clk_lcd	:	in std_logic;
-		disp	:	out std_logic;
 		hsync	:	out std_logic;
 		vsync	:	out std_logic;
 		de		:	out std_logic;	   
