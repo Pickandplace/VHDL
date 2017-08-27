@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<BaliProject version="3.2" title="LCD_with_SDRAM" device="LCMXO2-7000HE-4TG144C" default_implementation="impl1">
+    <Options/>
+    <Implementation title="impl1" dir="impl1" description="impl1" synthesis="lse" default_strategy="Strategy1">
+        <Options def_top="top"/>
+        <Source name="lcd_wrapper.vhd" type="VHDL" type_short="VHDL">
+            <Options top_module="top"/>
+        </Source>
+        <Source name="fifo_dc.ipx" type="IPX_Module" type_short="IPX">
+            <Options/>
+        </Source>
+        <Source name="fifo_dc.lpc" type="LPC_Module" type_short="LPC">
+            <Options/>
+        </Source>
+        <Source name="fifo_dc.vhd" type="VHDL" type_short="VHDL">
+            <Options/>
+        </Source>
+        <Source name="lcd.vhd" type="VHDL" type_short="VHDL">
+            <Options/>
+        </Source>
+        <Source name="model_wrapper.vhd" type="VHDL" type_short="VHDL" syn_sim="SimOnly">
+            <Options/>
+        </Source>
+        <Source name="mt48lc16m16a2.v" type="Verilog" type_short="Verilog" syn_sim="SimOnly">
+            <Options/>
+        </Source>
+        <Source name="pll_1.ipx" type="IPX_Module" type_short="IPX">
+            <Options/>
+        </Source>
+        <Source name="pll_1.lpc" type="LPC_Module" type_short="LPC">
+            <Options/>
+        </Source>
+        <Source name="pll_1.vhd" type="VHDL" type_short="VHDL">
+            <Options/>
+        </Source>
+        <Source name="sdram.vhd" type="VHDL" type_short="VHDL">
+            <Options/>
+        </Source>
+        <Source name="testbench.vhd" type="VHDL" type_short="VHDL" syn_sim="SimOnly">
+            <Options/>
+        </Source>
+        <Source name="LCD_with_SDRAM.lpf" type="Logic Preference" type_short="LPF">
+            <Options/>
+        </Source>
+        <Source name="rev.rva" type="Reveal Analyzer Project File" type_short="RVA">
+            <Options/>
+        </Source>
+        <Source name="reveal.rvl" type="Reveal" type_short="Reveal">
+            <Options/>
+        </Source>
+    </Implementation>
+    <Strategy name="Strategy1" file="LCD_with_SDRAM1.sty"/>
+</BaliProject>
