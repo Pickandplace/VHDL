@@ -31,7 +31,6 @@ entity top is
 		vsync_io	:	out std_logic;
 		de_io		:	out std_logic;
 		clk_io		:	out std_logic;
-		pll_locked_o	: out std_logic;
 		
 		sdr_DQ				:inout std_logic_vector( 15 downto 0);
 		sdr_A				:out std_logic_vector(12 downto 0);
@@ -48,16 +47,17 @@ entity top is
 end top;
 
 architecture Behavioral1 of top is
-component lcd 
+component lcd 	 
+	generic (
+		constant H_RES		: integer := 480;
+		constant V_RES		: integer := 272
+	);
     port (
 		clk_lcd		:	in std_logic;
 		hsync		:	out std_logic;
 		vsync		:	out std_logic;
 		de			:	out std_logic;
 		reset_n		:	in std_logic;
-		pixel_vector	: 	out std_logic_vector(16 downto 0);
-		h_pixel_vector	:	out	std_logic_vector(8 downto 0);
-		v_pixel_vector	:	out	std_logic_vector(8 downto 0);
 		frame_start	: 	out std_logic;
 		frame_end 	: 	out std_logic
 	);
@@ -106,7 +106,7 @@ end component;
 constant OSC_STR  : string  := "133.00";
 constant X_RESOLUTION : integer := 480;
 constant Y_RESOLUTION : integer := 272;--272;		
-constant REFRESH_DELAY : integer := 1000;
+constant REFRESH_DELAY : integer := 620;
  
 attribute NOM_FREQ : string;
 attribute NOM_FREQ of OSCinst0 : label is "133.00";
@@ -153,14 +153,9 @@ signal clk_10MHz		:	std_logic := '0';
 signal en_clk_10MHz		:	std_logic := '0'; 
 signal pll_locked		:	std_logic := '0'; 	   
 
-signal pixel_vector		: 	std_logic_vector(16 downto 0) := (others => '0');  
-signal pixel_vector_old	: 	std_logic_vector(16 downto 0) := (others => '1'); 
-type state_type is (s0_wait_for_lock, s1_reset, s06_init_ram, s2_fill_buffer, s3_copy_lcd, s4_sdram_refresh);
+type state_type is (s0_wait_for_lock, s1_reset, s2_init_ram, s3_fill_ram, s4_copy_lcd, s5_refresh_ram);
 signal state   : state_type := s0_wait_for_lock;
 
-
-signal h_pixel_vector	:	std_logic_vector(8 downto 0) := (others => '0');
-signal v_pixel_vector	:	std_logic_vector(8 downto 0) := (others => '0'); 
 
 
 signal red_r 			:	std_logic_vector(7 downto 0) := (others => '0'); 
@@ -169,8 +164,14 @@ signal blue_r 			:	std_logic_vector(7 downto 0) := (others => '0');
 signal state_dbg 		:	std_logic_vector(2 downto 0) := (others => '0'); 
 signal frame_start_rising : std_logic := '0';
 signal frame_end_rising : std_logic := '0';
-signal frame_start_rising_r : std_logic := '0';
-signal frame_end_rising_r : std_logic := '0';
+signal frame_end_rising_r0 : std_logic := '0';
+signal frame_end_rising_r1 : std_logic := '0';
+signal frame_end_rising_r2 : std_logic := '0';
+signal frame_end_rising_r3 : std_logic := '0';
+signal frame_start_rising_r0 : std_logic := '0';
+signal frame_start_rising_r1 : std_logic := '0';
+signal frame_start_rising_r2 : std_logic := '0';
+signal frame_start_rising_r3 : std_logic := '0';
 
 signal fifo_d			:   std_logic_vector(15 downto 0) := (others => '0');  
 signal fifo_wr			:   std_logic := '0'; 
@@ -187,22 +188,20 @@ signal hsync_1r			:   std_logic := '0';
 signal vsync_r			:   std_logic := '0'; 	 
 signal vsync_1r			:   std_logic := '0'; 
 signal de_r				:   std_logic := '0';  
-signal refresh_counter 	: integer range 0 to REFRESH_DELAY+300;	
-signal filling_ram	 	:	std_logic := '0';   
-signal reading_ram	 	:	std_logic := '0'; 	 
+signal refresh_counter 	: integer range 0 to REFRESH_DELAY+50;	
+signal filling_ram	 	:	std_logic := '0'; 	 
 signal refresh_sdr		: 	std_logic := '0'; 
 signal rw_sdr			: 	std_logic := '0'; 
 signal we_sdr_n			: 	std_logic := '0'; 
 signal addr_sdr			:	std_logic_vector(23 downto 0) := (others => '0'); 
-signal data_to_sdr		:	std_logic_vector(15 downto 0) := (others => '0'); 
-signal data_to_sdr_r	:	std_logic_vector(16 downto 0) := (others => '0'); 
+signal data_to_sdr		:	std_logic_vector(15 downto 0) := (others => '0');  
 signal mask_u_sdr		: 	std_logic := '0'; 
 signal mask_l_sdr		: 	std_logic := '0'; 
 signal sdr_ready		: 	std_logic := '0'; 
 signal sdr_done			: 	std_logic := '0'; 
 signal data_from_sdr	:	std_logic_vector(15 downto 0) := (others => '0'); 
-		signal x_var : integer range 0 to X_RESOLUTION+1 := 0;
-		signal y_var : integer range 0 to Y_RESOLUTION+1 := 0;	
+signal x_var : integer range 0 to X_RESOLUTION+1 := 0;
+signal y_var : integer range 0 to Y_RESOLUTION+1 := 0;	
 begin  	
 	
 video_buffer: sdram_simple 
@@ -215,8 +214,8 @@ video_buffer: sdram_simple
       we_i           => we_sdr_n,
       addr_i         => addr_sdr,
       data_i         => data_to_sdr,
-      ub_i           => mask_u_sdr,
-      lb_i           => mask_l_sdr,
+      ub_i           => '0',
+      lb_i           => '0',
       ready_o        => sdr_ready,
       done_o         => sdr_done,
       data_o         => data_from_sdr,
@@ -234,15 +233,17 @@ video_buffer: sdram_simple
       sdDqml_o       => sdr_LDQM
    ); 
 
-lcd_0:lcd	port map(
+lcd_0:lcd	
+	generic map(
+		H_RES => X_RESOLUTION,
+		V_RES => Y_RESOLUTION
+	)
+	port map(
 		clk_lcd 	=> 	clk_10MHz,
 		hsync		=>	hsync_r,
 		vsync		=>	vsync_r,
 		de			=>	de,	
 		reset_n 	=>	reset_n,
-		pixel_vector	=> pixel_vector, 
-		h_pixel_vector 	=> h_pixel_vector,
-		v_pixel_vector	=> v_pixel_vector,
 		frame_start	=>	frame_start,
 		frame_end	=>	frame_end
 );
@@ -277,9 +278,9 @@ fifo_c: fifo_dc
 		Reset	=>	fifo_reset, 
 		RPReset	=>	'0', 
 		Q		=>	fifo_Q, 
-		Empty	=>	fifo_Empty, 
+		Empty	=>	fifo_Aempty, 
         Full	=>	fifo_Afull, 
-		AlmostEmpty	=>	fifo_Aempty, 
+		AlmostEmpty	=>	fifo_Empty, 
 		AlmostFull	=>	fifo_Full
 	);
 		
@@ -297,48 +298,48 @@ fifo_c: fifo_dc
 					
 				when s1_reset =>
 					if reset_finished = '1' then
-						state <= s06_init_ram;
+						state <= s2_init_ram;
 					else
 						state <= s1_reset;
 					end if;
 				
-				when s06_init_ram =>
-					if  sdr_ready = '1' then
-						state <= s2_fill_buffer;
+				when s2_init_ram =>
+					if sdr_ready = '1' then
+						state <= s3_fill_ram;
 					else
-						state <= s06_init_ram;
-					end if;
-					
-				when s2_fill_buffer =>
-					if filling_ram = '1' then
-						state <= s2_fill_buffer;
-					else
-						state <= s3_copy_lcd;
-					end if;	 
-					if refresh_counter >= REFRESH_DELAY and rw_sdr = '0' then  
-						state <= s4_sdram_refresh;
-					end if;
-					
+						state <= s2_init_ram;
+					end if;				
 				
-				when s3_copy_lcd =>
+				when s3_fill_ram =>
 					if refresh_counter >= REFRESH_DELAY and rw_sdr = '0' then
-						state <= s4_sdram_refresh;   
+						state <= s5_refresh_ram;
 					else
-						state <= s3_copy_lcd;
-					end if;
-					
-						
-				when s4_sdram_refresh =>
-					if sdr_done = '1' then	  
-						if filling_ram = '1' then
-							state <= s2_fill_buffer;
+						if 	filling_ram = '1' then
+							state <= s3_fill_ram;
 						else
-							state <= s3_copy_lcd;
-						end if;				
-					else
-						state <= s4_sdram_refresh;
+							state <= s4_copy_lcd;
+						end if;
 					end if;
-
+									
+				when s4_copy_lcd =>
+					if refresh_counter >= REFRESH_DELAY and rw_sdr = '0' then
+						state <= s5_refresh_ram;
+					else
+						if 	filling_ram = '1' then
+							state <= s3_fill_ram;
+						else
+							state <= s4_copy_lcd;
+						end if;
+					end if;
+				
+				when s5_refresh_ram =>
+					if sdr_done = '1' then
+						if 	filling_ram = '1' then
+							state <= s3_fill_ram;
+						else
+							state <= s4_copy_lcd;
+						end if;			
+					end if;
 					
 				when others =>
 					NULL;
@@ -347,19 +348,19 @@ fifo_c: fifo_dc
 	end process;
 	
 	process (clk_100MHz) 
-		variable delay_reset : integer range 0 to 101;
+		variable delay_reset : integer range 0 to 100;
 
 	begin
 		if rising_edge(clk_100MHz) then
-			case state is  
-				
+			case state is
+			
 				when s0_wait_for_lock =>
 					state_dbg <= "000";
 					delay_reset := 0;
 					reset_finished <= '0';
 					reset_n <= '0';	 
 					disp_io <= '0';
-					
+							
 				when s1_reset =>
 					state_dbg <= "001";
 					if delay_reset < 100 then
@@ -370,87 +371,91 @@ fifo_c: fifo_dc
 						disp_io <= '0';
 					else
 						reset_finished <= '1';
-					end if;
+					end if;			
 				
-				when s06_init_ram =>  
+				when s2_init_ram =>	
 					state_dbg <= "010";
-					reset_n <= '1';	
+					reset_n <= '1';
 					rw_sdr <= '0';
 					we_sdr_n <= '1';
-					mask_u_sdr <= '0';
-					mask_l_sdr <= '0';	
-					addr_sdr <= (others => '0');   
-					data_to_sdr <= (others => '0');	
-					filling_ram <= '1';	
-					x_var <= 0;
-					y_var <= 0;
-					
-				when s2_fill_buffer =>					
-					state_dbg <= "011"; 
+					filling_ram <= '1';
+				
+				when s3_fill_ram =>	 
+					state_dbg <= "011";
+					rw_sdr <= '0'; 
+					en_clk_10MHz <= '0'; 
 					reset_n	 <= '1';  
-					refresh_sdr <= '0';	
-					refresh_counter <= refresh_counter + 1 ; 
-					rw_sdr <= '0';
-					disp_io <= '0';
-					if refresh_counter < REFRESH_DELAY then   
+					disp_io <= '0';	 
+					
+					refresh_counter <= refresh_counter + 1;
+					if refresh_counter < REFRESH_DELAY then
+						addr_sdr <= "000000" & std_logic_vector(to_unsigned(y_var, 9)) & std_logic_vector(to_unsigned(x_var, 9));
+						data_to_sdr <=  std_logic_vector(to_unsigned(y_var, 9)(8 downto 2)) & std_logic_vector(to_unsigned(x_var, 9));--data_from_sdr;
+						we_sdr_n <= '0';
 						rw_sdr <= '1';
-						we_sdr_n <= '0'; 						
-						addr_sdr <= "00000" & '0' & std_logic_vector(to_unsigned(y_var, 9)) & std_logic_vector(to_unsigned(x_var, 9)); 
-						data_to_sdr <=  std_logic_vector(to_unsigned(y_var, 9)(8 downto 2)) & std_logic_vector(to_unsigned(x_var, 9));	 
-						if sdr_done = '1' then	
-							rw_sdr <= '0';
+						if sdr_done = '1' then
+							rw_sdr <= '0';							  
 							x_var <= x_var + 1;	
 							if x_var >= X_RESOLUTION-1 then
 								y_var <= y_var + 1;
 								x_var <= 0;	 
 								if y_var >= Y_RESOLUTION-1 then
+									y_var <= 0;
 									x_var <= 0;
-									y_var <= 0;	  
-									filling_ram <= '0';
+									filling_ram <= '0';	
 								end if;
-							end if;	 
-						end if;
-					end if;	
-	
-				when s3_copy_lcd =>	
-					state_dbg <= "100";
-					refresh_sdr <= '0';	
-					en_clk_10MHz <= '1';  
-					disp_io <= '1';	
-					fifo_wr <= '0';	  
-					rw_sdr <= '0';
-					refresh_counter <= refresh_counter + 1 ;  
-					if  frame_end_rising = '1' then
-						x_var <= 0;
-						y_var <= 0;
-					end if;	
-					if refresh_counter < REFRESH_DELAY then 
-						if fifo_full = '0' and frame_end = '0'then
-							rw_sdr <= '1';
-							we_sdr_n <= '1';
-							addr_sdr <= "00000" & '0' & std_logic_vector(to_unsigned(y_var, 9)) & std_logic_vector(to_unsigned(x_var, 9)); 
-							if sdr_done = '1' then		 
-								rw_sdr <= '0';
-								fifo_D <=  data_from_sdr;
-								fifo_wr <= '1';
-								x_var <= x_var + 1;	
-								if x_var >= X_RESOLUTION-1 then
-									y_var <= y_var + 1;
-									x_var <= 0;	 
-									if y_var >= Y_RESOLUTION-1 then
-										x_var <= 0;
-										y_var <= 0;	  
-									end if;
-								end if;	 
 							end if;
 						end if;
+					end if;
+					
+					
+				when s4_copy_lcd =>					
+					state_dbg <= "100";
+					en_clk_10MHz <= '1'; 
+					reset_n	 <= '1';  
+					disp_io <= '1';		
+					refresh_counter <= refresh_counter + 1;				
+					if frame_end_rising = '1' then
+						x_var <= 0;
+						y_var <= 0;	
+						--filling_ram <= '1';
 					end if;	
-
-				when s4_sdram_refresh =>	
-					state_dbg <= "101";
-					refresh_sdr <= '1';	  
 					rw_sdr <= '0';
-					refresh_counter	<= 0;
+					fifo_wr <= '0'; --Must be only one period long, of course, and captured by the slower LCD clock
+					if refresh_counter < REFRESH_DELAY then
+						if frame_start = '1' and fifo_reset = '0' then
+							if fifo_Full = '0' then	
+								addr_sdr <= "000000" & std_logic_vector(to_unsigned(y_var, 9)) & std_logic_vector(to_unsigned(x_var, 9));
+								we_sdr_n <= '1';  
+								rw_sdr <= '1';
+								if sdr_done = '1' then
+									fifo_wr <= '1';
+									fifo_D <= data_from_sdr;	  
+									rw_sdr <= '0';
+									x_var <= x_var + 1;	
+									if x_var >= X_RESOLUTION-1 then
+										y_var <= y_var + 1;
+										x_var <= 0;	 
+										if y_var >= Y_RESOLUTION-1 then
+											y_var <= 0;	
+											x_var <= 0;	
+											--filling_ram <= '1';
+										end if;
+									end if;
+								end if;
+							end if;
+						end if;
+					end if;	 	
+						
+				when s5_refresh_ram =>	  
+					state_dbg <= "101";
+					rw_sdr <= '0';	  
+					we_sdr_n <= '0';
+					refresh_sdr <= '1';
+					if sdr_done = '1' then
+						refresh_counter <= 0;
+						refresh_sdr <= '0';
+					end if;
 					
 				when others	=>
 				NULL;
@@ -477,22 +482,27 @@ fifo_c: fifo_dc
 	end process;   
 	
 	--detect edge of the frame start
-	process(clk_100MHz) 
-	begin
-		if rising_edge(clk_100MHz) then
-			frame_start_rising_r <= frame_start;
-		end if;
-	end process;
-	frame_start_rising <= not(frame_start_rising_r) and frame_start; 
-	
+--	process(clk_100MHz) 
+--	begin
+--		if rising_edge(clk_100MHz) then
+--			frame_start_rising_r0 <= frame_start;
+--			frame_start_rising_r1 <= frame_start_rising_r0;
+--			frame_start_rising_r3 <= frame_start_rising_r2;
+--			frame_start_rising <= frame_start_rising_r3;
+--		end if;
+--	end process;
+--	frame_start_rising_r2 <= not(frame_start_rising_r1) and frame_start;
 	--detect edge of the frame end
 	process(clk_100MHz) 
 	begin
 		if rising_edge(clk_100MHz) then
-			frame_end_rising_r <= frame_end;
+			frame_end_rising_r0 <= frame_end;
+			frame_end_rising_r1 <= frame_end_rising_r0;
+			--frame_end_rising_r2 <= frame_end_rising_r1;
+			frame_end_rising <= frame_end_rising_r2;
 		end if;
 	end process;
-	frame_end_rising <= not(frame_end_rising_r) and frame_end;	
+	frame_end_rising_r2 <= not(frame_end_rising_r1) and frame_end;		
 	
 	
 	process( clk_10MHz)	 --delay the LCD signals 2 clocks, because the FIFO has a 2 clock read latency.  
@@ -507,7 +517,7 @@ fifo_c: fifo_dc
 		end if;
 	end process;   
 
-	fifo_reset <= (frame_end_rising) or (not reset_n);
+	fifo_reset <= (frame_end_rising) ;
 	clk_io 		<= clk_10MHz;
 	reset <= not reset_n;
 	fifo_rd <= de;	--take DE directly, instead from a process clocked by the LCD clock, to avoid a 1 clk delay.

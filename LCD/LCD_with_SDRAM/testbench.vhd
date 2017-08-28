@@ -61,8 +61,7 @@ component top
 		hsync_io	:	out std_logic;
 		vsync_io	:	out std_logic;
 		de_io		:	out std_logic;
-		clk_io		:	out std_logic;
-		pll_locked_o	: out std_logic;
+		clk_io		:	out std_logic;	 
 		
 		sdr_DQ				:inout std_logic_vector( 15 downto 0);
 		sdr_A				:out std_logic_vector(12 downto 0);
