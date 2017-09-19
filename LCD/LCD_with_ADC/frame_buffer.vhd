@@ -326,11 +326,7 @@ video_buffer: sdram_simple
 					sdr_rw <= '1';  
 					sdr_refresh <= '0';	
 					reset <= '0';	
-					if data_valid = '1' then  	 	
-						sdr_we_n <= '0'; 
-					else
-						sdr_we_n <= '1';
-					end if;
+					sdr_we_n <= '0';
 					sdr_refresh_counter <= sdr_refresh_counter + 1;	 
 					fifo_wr <= '0';	 	
 					ram_filled <= '0'; 	

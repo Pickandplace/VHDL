@@ -51,7 +51,7 @@ component buffer_interface
 	reset_n		:	in	std_logic;
 	x_vector	:	out integer range 0 to H_RES; 
 	y_vector	:	out integer range 0 to V_RES; 
-	d_vector	:	out std_logic_vector(23 downto 0);
+	d_vector	:	out std_logic_vector(24 downto 0);
 	data_valid	:	out std_logic;
 	ready_for_data: in std_logic;
 	frame_end	:	out std_logic

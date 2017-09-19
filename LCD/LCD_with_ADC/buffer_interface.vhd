@@ -212,21 +212,28 @@ port map (
 				when s4_write_fifo_to_buffer =>
 					last_pixel_r <= '0'; 
 					frame_end_r <= '0';
+					fifo_write_en <= '0';
 					
 					if ready_for_data = '1' then
 						fifo_read <= '1';	
 						data_valid <= '1'; 
+						frame_end_r <= '0';
+						fifo_reset <= '0';
+						state <= s4_write_fifo_to_buffer;
 						if x_var < H_RES then
 							x_var <= x_var + 1;
-							frame_end_r <= '0';
-							fifo_reset <= '0';
-							state <= s4_write_fifo_to_buffer;							
+							if y_var < V_RES then
+							     y_var <= y_var + 1;
+							else
+								--x_var <= 0;	
+								y_var <= 0;	
+								frame_end_r <= '1';
+								enable_lcd <= '1';	
+								fifo_reset <= '1';
+								state <= s1_wait_for_first_sample;
+							end if;	
 						else
 							x_var <= 0;	
-							frame_end_r <= '1';
-							enable_lcd <= '1';	
-							fifo_reset <= '1';
-							state <= s1_wait_for_first_sample;
 						end if;
 					else
 						data_valid <= '0'; 
@@ -240,44 +247,46 @@ port map (
 	end if;
 	end process;
 				
-	process(clk_acq)   
-	variable x_v : integer range 0 to H_RES := 0;	 
-	variable y_v : integer range 0 to H_RES := 0;
-	begin
-		if rising_edge(clk_acq) then  
-			if reset_n = '0' then
-				x_v := 0;
-				y_v := 0;					   		  
-			elsif new_sample_s = '1' then		
-				if x_v < H_RES then
-					x_v := x_v + 1;
-					y_v := y_v + 1;
-				else
-					x_v := 0; 
-					y_v := 0;
-				end if;
-				sample_X_s <= std_logic_vector(to_unsigned(x_v, 9)); 
-				sample_Y_s <= std_logic_vector(to_unsigned(y_v, 9));
-			end if;
-		end if;
-	end process; 
+--	process(clk_acq)   
+--	variable x_v : integer range 0 to H_RES := 0;	 
+--	variable y_v : integer range 0 to H_RES := 0;
+--	begin
+--		if rising_edge(clk_acq) then  
+--			if reset_n = '0' then
+--				x_v := 0;
+--				y_v := 0;					   		  
+--			elsif new_sample_s = '1' then		
+--				if x_v < H_RES then
+--					x_v := x_v + 1;
+--					if x_v < V_RES then
+--						y_v := y_v + 1;
+--					end if;
+--				else
+--					x_v := 0; 
+--					y_v := 0;
+--				end if;
+--				sample_X_s <= std_logic_vector(to_unsigned(x_v, 9)); 
+--				sample_Y_s <= std_logic_vector(to_unsigned(y_v, 9));
+--			end if;
+--		end if;
+--	end process; 
 
-	process(clk_acq)   
-	variable del : integer range 0 to 4 := 0;	  
-	begin
-		if rising_edge(clk_acq) then  
-			if reset_n = '0' then
-				del := 0; 
-				new_sample_s <= '0';
-			elsif  del < 4 then
-				del := del + 1;
-				new_sample_s <= '0';
-			else
-				del := 0;
-				new_sample_s <= '1';
-			end if;
-		end if;
-	end process;
+--	process(clk_acq)   
+--	variable del : integer range 0 to 4 := 0;	  
+--	begin
+--		if rising_edge(clk_acq) then  
+--			if reset_n = '0' then
+--				del := 0; 
+--				new_sample_s <= '0';
+--			elsif  del < 4 then
+--				del := del + 1;
+--				new_sample_s <= '0';
+--			else
+--				del := 0;
+--				new_sample_s <= '1';
+--			end if;
+--		end if;
+--	end process;
 	
 	process(clk_acq)   
 	variable sample_tmp : integer range 0 to H_RES := 0;
@@ -288,11 +297,11 @@ port map (
 				x_vector_i <= 0;
 				y_vector_i <= 0;
 				d_vector_i <= (others => '0');			  
-			elsif new_sample_s = '1' then		
-				sample_tmp := to_integer(unsigned(sample_X_s(8 downto 0)));
+			elsif new_sample = '1' then		
+				sample_tmp := to_integer(unsigned(sample_X(8 downto 0)));
 				if sample_tmp /= x_vector_i then
-					x_vector_i <= to_integer(unsigned(sample_X_s(8 downto 0)));	
-					y_vector_i <= to_integer(unsigned(sample_Y_s(7 downto 0)));
+					x_vector_i <= to_integer(unsigned(sample_X(9 downto 1)));	
+					y_vector_i <= to_integer(unsigned(sample_Y(8 downto 1)));
 					d_vector_i <= (others => '1');--"000" & sample_Z(12 downto 0);
 					insert_sample <= '1';
 				else
@@ -311,12 +320,13 @@ port map (
 					"000" when others;
 
 	--fifo_read <= '1' when state = s3_fill_ram and ready_for_data = '1' else '0';
-	fifo_d <= d_vector_i & std_logic_vector(to_unsigned(y_vector_i,9));
+	fifo_d <= d_vector_i & std_logic_vector(to_unsigned(y_vector_i,9));--d_vector_i & std_logic_vector(to_unsigned(y_vector_i,9));
 	new_acq_frame <= '1' when x_vector_i = 0 else '0';
 													   
 	x_vector <= x_var;
 	y_vector <= to_integer(unsigned(fifo_q(8 downto 0))) when fifo_read = '1' and fifo_empty = '0' else y_var;
-	d_vector <= fifo_q(24 downto 9) when fifo_read = '1' and fifo_empty = '0' else (others => '0');	 
+	d_vector <= fifo_q(15 downto 0) when state = s4_write_fifo_to_buffer and fifo_empty = '0' else (others => '0');--fifo_read = '1' and fifo_empty = '0' else (others => '0');	
+	 
 	frame_end <= frame_end_r ;	  
 	fifo_write <= insert_sample and fifo_write_en;
 	
