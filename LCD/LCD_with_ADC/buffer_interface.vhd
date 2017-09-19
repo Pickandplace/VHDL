@@ -184,12 +184,12 @@ port map (
 					
 					if ready_for_data = '1' then
 						data_valid <= '1';
-						if x_var < H_RES then
+						if x_var < H_RES-1 then
 							x_var <= x_var + 1;
 							last_pixel_r <= '0';
 						else
 							x_var <= 0;	
-							if y_var < V_RES then
+							if y_var < V_RES-1 then
 								y_var <= y_var + 1;
 							else
 								y_var <= 0;	
@@ -220,10 +220,13 @@ port map (
 						frame_end_r <= '0';
 						fifo_reset <= '0';
 						state <= s4_write_fifo_to_buffer;
-						if x_var < H_RES then
+						if x_var < H_RES-1 then
 							x_var <= x_var + 1;
-							if y_var < V_RES then
-							     y_var <= y_var + 1;
+								
+						else
+							x_var <= 0;	
+							if y_var < V_RES-1 then
+								 y_var <= y_var + 1;
 							else
 								--x_var <= 0;	
 								y_var <= 0;	
@@ -231,9 +234,7 @@ port map (
 								enable_lcd <= '1';	
 								fifo_reset <= '1';
 								state <= s1_wait_for_first_sample;
-							end if;	
-						else
-							x_var <= 0;	
+							end if;
 						end if;
 					else
 						data_valid <= '0'; 
@@ -299,14 +300,14 @@ port map (
 				d_vector_i <= (others => '0');			  
 			elsif new_sample = '1' then		
 				sample_tmp := to_integer(unsigned(sample_X(8 downto 0)));
-				if sample_tmp /= x_vector_i then
+				--if sample_tmp /= x_vector_i then
 					x_vector_i <= to_integer(unsigned(sample_X(9 downto 1)));	
 					y_vector_i <= to_integer(unsigned(sample_Y(8 downto 1)));
 					d_vector_i <= (others => '1');--"000" & sample_Z(12 downto 0);
 					insert_sample <= '1';
-				else
-					insert_sample <= '0';
-				end if;	
+				--else
+					--insert_sample <= '0';
+				--end if;	
 				
 			end if;
 		end if;
