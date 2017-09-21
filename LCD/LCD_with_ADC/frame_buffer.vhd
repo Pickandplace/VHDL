@@ -258,10 +258,9 @@ video_buffer: sdram_simple
  	
 
 
-	process (clk_sdr)
+	process (clk_sdr, reset_n)
 	begin
-	if rising_edge(clk_sdr) then
-		if reset_n = '0' then
+	if reset_n = '0' then
 			state <= s0_reset;
 			sdr_refresh_counter <= 0;	
 			sdr_refresh <= '0';	
@@ -276,144 +275,144 @@ video_buffer: sdram_simple
 			buffer_index_next <= '0'; 
 			ram_filled <= '0'; 	
 			buffer_ready <= '0';
-		else
-			sdr_rw <= '0';
-			fifo_wr <= '0';	   
-			case (state) is
-				when s0_reset =>
-					sdr_refresh_counter <= 0;	
-					sdr_refresh <= '0';	
-					sdr_rw <= '0';
-					sdr_we_n <= '1';  	
-					reset <= '1'; 	
-					--en_clk_lcd <= '0';	
-					reset_counter <= reset_counter + 1;	   
-					fifo_wr <= '0';
-					--disp_r <= '0';  
-					x_var_r <= 0;
-					y_var_r <= 0; 		 
-					buffer_index_next <= '0';	  
-					ram_filled <= '0';	
-					buffer_ready <= '0';
-					if reset_counter >= 49 then
-						state <= s2_init_ram;	
-					else
-						state <= s0_reset;
-					end if;			 
-					
-					
-				when s2_init_ram =>	 
-					--en_clk_lcd <= '0'; 
-					sdr_we_n <= '1';  
-					sdr_rw <= '0';
-					reset <= '0';	
-					sdr_refresh <= '0';	  
-					sdr_refresh_counter <= 0;	
-					fifo_wr <= '0';		 
-					--disp_r <= '0';   
-					x_var_r <= 0;
-					y_var_r <= 0; 		 
-					buffer_index_next <= '0';
-					ram_filled <= '0';	
-					buffer_ready <= '0';
-					if sdr_ready = '1' then
-						state <= s3_fill_ram; 
-					else
-						state <= s2_init_ram; 
-					end if;
+		elsif rising_edge(clk_sdr) then
+		sdr_rw <= '0';
+		fifo_wr <= '0';	   
+		case (state) is
+			when s0_reset =>
+				sdr_refresh_counter <= 0;	
+				sdr_refresh <= '0';	
+				sdr_rw <= '0';
+				sdr_we_n <= '1';  	
+				reset <= '1'; 	
+				--en_clk_lcd <= '0';	
+				reset_counter <= reset_counter + 1;	   
+				fifo_wr <= '0';
+				--disp_r <= '0';  
+				x_var_r <= 0;
+				y_var_r <= 0; 		 
+				buffer_index_next <= '0';	  
+				ram_filled <= '0';	
+				buffer_ready <= '0';
+				if reset_counter >= 49 then
+					state <= s2_init_ram;	
+				else
+					state <= s0_reset;
+				end if;			 
 				
-				when s3_fill_ram =>	   
-					sdr_rw <= '1';  
-					sdr_refresh <= '0';	
-					reset <= '0';	
-					sdr_we_n <= '0';
-					sdr_refresh_counter <= sdr_refresh_counter + 1;	 
-					fifo_wr <= '0';	 	
-					ram_filled <= '0'; 	
-					buffer_ready <= '0';
-					if sdr_done = '1' then
-						if (sdr_refresh_counter > SDR_REFRESH_DELAY)  then	
-							state <= s5_refresh_ram;	 
-						else			
-							buffer_ready <= '1';
-							if buffer_end = '1' then 
-								--if buffer_index_next = buffer_index then
-									buffer_index_next <= not buffer_index;
-								--end if;
-							end if;
-							if fifo_Aempty = '1' and enable_lcd_i = '1' then
-							    state <= s4_copy_lcd;
-							else
-							    state <= s3_fill_ram;
-							end if;
+				
+			when s2_init_ram =>	 
+				--en_clk_lcd <= '0'; 
+				sdr_we_n <= '1';  
+				sdr_rw <= '0';
+				reset <= '0';	
+				sdr_refresh <= '0';	  
+				sdr_refresh_counter <= 0;	
+				fifo_wr <= '0';		 
+				--disp_r <= '0';   
+				x_var_r <= 0;
+				y_var_r <= 0; 		 
+				buffer_index_next <= '0';
+				ram_filled <= '0';	
+				buffer_ready <= '0';
+				if sdr_ready = '1' then
+					state <= s3_fill_ram; 
+				else
+					state <= s2_init_ram; 
+				end if;
+			
+			when s3_fill_ram =>	   
+				sdr_rw <= '1';  
+				sdr_refresh <= '0';	
+				reset <= '0';	
+				sdr_we_n <= '0';
+				sdr_refresh_counter <= sdr_refresh_counter + 1;	 
+				fifo_wr <= '0';	 	
+				ram_filled <= '0'; 	
+				buffer_ready <= '0';
+				if sdr_done = '1' then
+					if (sdr_refresh_counter > SDR_REFRESH_DELAY)  then	
+						state <= s5_refresh_ram;	 
+					else			
+						buffer_ready <= '1';
+						if buffer_end = '1' then 
+							--if buffer_index_next = buffer_index then
+								buffer_index_next <= not buffer_index;
+							--end if;
 						end if;
-					else
-						state <= s3_fill_ram;
-						buffer_ready <= '0';
-					end if;
-							
-				
-				when s4_copy_lcd =>	  
-					reset <= '0';
-					--en_clk_lcd <= '1';
-					sdr_rw <= '1';   
-					sdr_we_n <= '1';  
-					sdr_refresh <= '0';
-					sdr_refresh_counter <= sdr_refresh_counter + 1;	 
-					fifo_wr <= '0';	
-					--disp_r <= '1'; 
-					ram_filled <= '1'; 
-					buffer_ready <= '0';
-					if sdr_done = '1' then
-						if (sdr_refresh_counter > SDR_REFRESH_DELAY)  then	
-							state <= s5_refresh_ram;	 
+						if fifo_Aempty = '1' and enable_lcd_i = '1' then
+							state <= s4_copy_lcd;
 						else
-							if fifo_Full = '0' then	
-								fifo_wr <= '1';
-								if x_var_r = X_RESOLUTION-1 then
-							   		x_var_r <= 0;	 
-									if y_var_r = Y_RESOLUTION-1 then	 
-									   	y_var_r <= 0;
-								   	else
-									   	y_var_r <= y_var_r + 1;		
-									end if;
+							state <= s3_fill_ram;
+						end if;
+					end if;
+				else
+					state <= s3_fill_ram;
+					buffer_ready <= '0';
+				end if;
+						
+			
+			when s4_copy_lcd =>	  
+				reset <= '0';
+				--en_clk_lcd <= '1';
+				sdr_rw <= '1';   
+				sdr_we_n <= '1';  
+				sdr_refresh <= '0';
+				sdr_refresh_counter <= sdr_refresh_counter + 1;	 
+				fifo_wr <= '0';	
+				--disp_r <= '1'; 
+				ram_filled <= '1'; 
+				buffer_ready <= '0';
+				if sdr_done = '1' then
+					if (sdr_refresh_counter > SDR_REFRESH_DELAY)  then	
+						state <= s5_refresh_ram;	 
+					else
+						if fifo_Full = '0' then	
+							fifo_wr <= '1';
+							if x_var_r = X_RESOLUTION-1 then
+								x_var_r <= 0;	 
+								if y_var_r = Y_RESOLUTION-1 then	 
+									y_var_r <= 0;
 								else
-									x_var_r <= x_var_r + 1;	
-								end if;	
+									y_var_r <= y_var_r + 1;		
+								end if;
 							else
-								fifo_wr <= '0';
-								state <= s3_fill_ram;
-							end if;			
-						end if;	 
+								x_var_r <= x_var_r + 1;	
+							end if;	
+						else
+							fifo_wr <= '0';
+							state <= s3_fill_ram;
+						end if;			
+					end if;	 
+				else
+					state <= s4_copy_lcd;
+				end if;					
+
+
+				
+			when s5_refresh_ram =>	  
+				fifo_wr <= '0';
+				sdr_we_n <= '0';
+				sdr_rw <= '0';  
+				sdr_refresh <= '1';	 
+				reset <= '0';
+				sdr_refresh_counter <= 0;	 
+				buffer_ready <= '0';
+				if sdr_done = '1' then	
+					if ram_filled = '0' then
+						state <= s3_fill_ram;
 					else
 						state <= s4_copy_lcd;
-					end if;					
-
-
-					
-				when s5_refresh_ram =>	  
-					fifo_wr <= '0';
-					sdr_we_n <= '0';
-					sdr_rw <= '0';  
-					sdr_refresh <= '1';	 
-					reset <= '0';
-					sdr_refresh_counter <= 0;	 
-					buffer_ready <= '0';
-					if sdr_done = '1' then	
-						if ram_filled = '0' then
-							state <= s3_fill_ram;
-						else
-							state <= s4_copy_lcd;
-						end if;
-					else
-						state <= s5_refresh_ram;
 					end if;
+				else
+					state <= s5_refresh_ram;
+				end if;
+			
 				
-					
-				when others =>
-					state <= s0_reset;		
-			end case;
-		end if;
+			when others =>
+				state <= s0_reset;		
+		end case;
+		--end if;
 	end if;
 	end process;	 
 	

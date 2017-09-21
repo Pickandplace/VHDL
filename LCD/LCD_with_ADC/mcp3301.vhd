@@ -50,7 +50,7 @@ signal sample_t		:  	std_logic_vector(12 downto 0) := (others => '0');
 begin
 
 	process (clk) 
-	variable clock_cnt	:	integer range 0 to 16 := 0;
+	variable clock_cnt	:	integer range 0 to 17 := 0;
 	begin
 		if rising_edge(clk) then
 			if reset_n = '0' then
@@ -67,11 +67,11 @@ begin
 				end if;
 				
 				if acq_started = '1' then
-					if clock_cnt < 15 then
-						clock_cnt := clock_cnt + 1;
+					if clock_cnt < 16 then
 						if clock_cnt > 2  then 
 							sample_i(15-clock_cnt) <= din;
-						end if;		 
+						end if;
+						clock_cnt := clock_cnt + 1;		 
 					else
 						clock_cnt := 0;
 						acq_finished <= '1';					  
@@ -82,14 +82,12 @@ begin
 					end if;
 				else
 					acq_finished <= '0';
-					--cs_n <= '1';
 					clock_cnt := 0;
 					sample_i <= (others => '0');  
-					--sample <= (others => '0');
 				end if;
 			end if;
 		end if;
 	end process;  
 
-	sample <= '1' & sample_t(11 downto 0) when sample_t(12) = '0' else '0' & sample_t(11 downto 0);
+	sample <= not(sample_t(12)) & sample_t(11 downto 0);
 end Behav;

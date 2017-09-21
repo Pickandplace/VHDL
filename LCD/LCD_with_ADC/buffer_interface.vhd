@@ -224,17 +224,12 @@ port map (
 							x_var <= x_var + 1;
 								
 						else
-							x_var <= 0;	
-							if y_var < V_RES-1 then
-								 y_var <= y_var + 1;
-							else
-								--x_var <= 0;	
+								x_var <= 0;	
 								y_var <= 0;	
 								frame_end_r <= '1';
 								enable_lcd <= '1';	
 								fifo_reset <= '1';
 								state <= s1_wait_for_first_sample;
-							end if;
 						end if;
 					else
 						data_valid <= '0'; 
@@ -321,12 +316,12 @@ port map (
 					"000" when others;
 
 	--fifo_read <= '1' when state = s3_fill_ram and ready_for_data = '1' else '0';
-	fifo_d <= d_vector_i & std_logic_vector(to_unsigned(y_vector_i,9));--d_vector_i & std_logic_vector(to_unsigned(y_vector_i,9));
+	fifo_d <= "1111111" & std_logic_vector(to_unsigned(x_vector_i,9)) & std_logic_vector(to_unsigned(y_vector_i,9));--d_vector_i & std_logic_vector(to_unsigned(y_vector_i,9));
 	new_acq_frame <= '1' when x_vector_i = 0 else '0';
 													   
-	x_vector <= x_var;
+	x_vector <= to_integer(unsigned(fifo_q(17 downto 9))) when fifo_read = '1' and fifo_empty = '0' else x_var;
 	y_vector <= to_integer(unsigned(fifo_q(8 downto 0))) when fifo_read = '1' and fifo_empty = '0' else y_var;
-	d_vector <= fifo_q(15 downto 0) when state = s4_write_fifo_to_buffer and fifo_empty = '0' else (others => '0');--fifo_read = '1' and fifo_empty = '0' else (others => '0');	
+	d_vector <= "111111111" & fifo_q(24 downto 18) when state = s4_write_fifo_to_buffer and fifo_empty = '0' else (others => '0');--fifo_read = '1' and fifo_empty = '0' else (others => '0');	
 	 
 	frame_end <= frame_end_r ;	  
 	fifo_write <= insert_sample and fifo_write_en;
